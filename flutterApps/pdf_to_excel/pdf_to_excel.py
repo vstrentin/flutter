@@ -7,6 +7,7 @@ import time
 import subprocess
 from openpyxl import Workbook
 import re
+from openpyxl.utils import get_column_letter
 
 class PDFConverter:
     def __init__(self, master):
@@ -86,11 +87,11 @@ class PDFConverter:
             for row, reservation in enumerate(reservations, start=2):
                 # Extract information using regex
                 data = re.search(r'(\d{2}/\d{2}/\d{4})', reservation)
-                sistema_user = re.search(r'(\d{2}/\d{2}/\d{4})\s+(SISTEMA|USER.*?)\s', reservation)
-                cliente = re.search(r'(?:SISTEMA|USER.*?)\s+(.*?)\s+\d-', reservation)
-                quadra = re.search(r'(\d-.*?)\s+\d{2}:', reservation)
-                horario = re.search(r'(\d{2}:\d{2}\s*ATÉ\s*\d{2}:\d{2})', reservation)
-                valor = re.search(r'R\$\s*(\d+,\d{2})', reservation)
+                sistema_user = re.search(r'(\d{2}/\d{2}/\d{4})\s+(SISTEMA|USER ARENA SET POINT.*?)\s', reservation)
+                cliente = re.search(r'(?:SISTEMA|USER ARENA SET POINT.*?)\s+(.*?)\s+\d-', reservation)
+                quadra = re.search(r'(\d+-\sQD\s(?:PADEL|AREIA)(?:\s\w+(?:-\w+)?)?)', reservation)
+                horario = re.search(r'(\d{2}:\d{2}\sATÉ\s[\s\S]*?\d{2}:\d{2})', reservation)
+                valor = re.search(r'ATÉ\s*[\d:]*\s*(R\$\d{1,3}(?:\.\d{3})*,\d{2})', reservation)
                 valor_recebido = re.search(r'R\$\s*(\d+,\d{2})\s*VALOR RESERVA:', reservation)
                 valor_reserva = re.search(r'VALOR RESERVA:\s*R\$\s*(\d+,\d{2})', reservation)
                 recebido_reserva = re.search(r'RECEBIDO RESERVA:\s*R\$\s*(\d+,\d{2})', reservation)
@@ -105,7 +106,7 @@ class PDFConverter:
 
                 # Write extracted data to Excel
                 ws.cell(row=row, column=1, value=data.group(1) if data else None)
-                ws.cell(row=row, column=2, value=sistema_user.group(1) if sistema_user else None)
+                ws.cell(row=row, column=2, value=sistema_user.group(2) if sistema_user else None)
                 ws.cell(row=row, column=3, value=cliente.group(1) if cliente else None)
                 ws.cell(row=row, column=4, value=quadra.group(1) if quadra else None)
                 ws.cell(row=row, column=5, value=horario.group(1) if horario else None)
@@ -121,6 +122,19 @@ class PDFConverter:
                 ws.cell(row=row, column=15, value=valor_pagamento.group(1) if valor_pagamento else None)
                 ws.cell(row=row, column=16, value=usuario_pagamento.group(1) if usuario_pagamento else None)
                 ws.cell(row=row, column=17, value=comentario.group(1) if comentario else None)
+
+            # After writing all data, adjust column widths
+            for col in ws.columns:
+                max_length = 0
+                column = col[0].column_letter  # Get the column name
+                for cell in col:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = (max_length + 2) * 1.2
+                ws.column_dimensions[column].width = adjusted_width
 
             wb.save(self.excel_file)
 
